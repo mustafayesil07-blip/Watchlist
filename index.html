@@ -1,0 +1,913 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>Watchlist</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --cream:    #F5EFE6;
+  --cream2:   #EDE4D7;
+  --cream3:   #E0D5C5;
+  --ink:      #2C1F0E;
+  --ink2:     #5C4A32;
+  --ink3:     #8C7A62;
+  --up:       #1A7A4A;
+  --up-bg:    #E6F4ED;
+  --dn:       #B83232;
+  --dn-bg:    #FAEAEA;
+  --warn:     #C07A10;
+  --warn-bg:  #FDF3E3;
+  --info:     #1A5FA8;
+  --info-bg:  #E8F0FB;
+  --card:     #FFFDF9;
+  --border:   rgba(92,74,50,0.12);
+  --shadow:   0 2px 12px rgba(44,31,14,0.08);
+  --radius:   14px;
+  --font:     'DM Sans', sans-serif;
+  --mono:     'DM Mono', monospace;
+}
+
+* { box-sizing:border-box; margin:0; padding:0; }
+
+body {
+  font-family: var(--font);
+  background: var(--cream);
+  color: var(--ink);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── TOPBAR ── */
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: rgba(245,239,230,0.92);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--border);
+  padding: 14px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.topbar-logo {
+  width: 34px;
+  height: 34px;
+  background: var(--ink);
+  color: var(--cream);
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+}
+
+.topbar-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--ink);
+  letter-spacing: -0.3px;
+}
+
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.refresh-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  background: var(--ink);
+  color: var(--cream);
+  border: none;
+  border-radius: 20px;
+  font-family: var(--font);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.refresh-btn:disabled { opacity: 0.55; }
+.refresh-btn:not(:disabled):hover { opacity: 0.8; }
+
+.last-update {
+  font-size: 11px;
+  color: var(--ink3);
+  font-family: var(--mono);
+}
+
+/* ── STATS BAR ── */
+.stats-bar {
+  display: flex;
+  gap: 10px;
+  padding: 14px 20px 0;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.stats-bar::-webkit-scrollbar { display: none; }
+
+.stat-chip {
+  flex-shrink: 0;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 8px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.stat-chip-lbl { font-size: 10px; color: var(--ink3); font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; }
+.stat-chip-val { font-size: 15px; font-weight: 700; font-family: var(--mono); color: var(--ink); }
+
+/* ── SEARCH + FILTER ── */
+.controls {
+  padding: 14px 20px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.search-wrap {
+  flex: 1;
+  position: relative;
+}
+.search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--ink3);
+  font-size: 14px;
+  pointer-events: none;
+}
+.search-inp {
+  width: 100%;
+  padding: 10px 14px 10px 36px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-family: var(--font);
+  font-size: 14px;
+  color: var(--ink);
+  outline: none;
+}
+.search-inp::placeholder { color: var(--ink3); }
+.search-inp:focus { border-color: var(--ink2); }
+
+.filter-pills {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.fpill {
+  padding: 8px 12px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink2);
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.fpill.active {
+  background: var(--ink);
+  color: var(--cream);
+  border-color: var(--ink);
+}
+
+/* ── TABLE ── */
+.table-wrap {
+  padding: 0 20px 100px;
+}
+
+.tbl-header {
+  display: grid;
+  grid-template-columns: 1fr 90px 80px 90px 72px;
+  padding: 8px 14px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--ink3);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.tbl-row {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  display: grid;
+  grid-template-columns: 1fr 90px 80px 90px 72px;
+  align-items: center;
+  padding: 12px 14px;
+  margin-bottom: 7px;
+  cursor: pointer;
+  transition: all 0.15s;
+  box-shadow: var(--shadow);
+  animation: fadeIn 0.2s ease both;
+}
+.tbl-row:hover { transform: translateY(-1px); box-shadow: 0 4px 20px rgba(44,31,14,0.12); }
+.tbl-row:active { transform: translateY(0); }
+
+@keyframes fadeIn {
+  from { opacity:0; transform: translateY(4px); }
+  to   { opacity:1; transform: translateY(0); }
+}
+
+.cell-ticker { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.ticker-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+  letter-spacing: -0.2px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.ticker-exp {
+  font-size: 11px;
+  color: var(--ink3);
+  font-family: var(--mono);
+}
+
+.cell-price {
+  font-family: var(--mono);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink);
+  text-align: right;
+}
+.price-loading {
+  display: inline-block;
+  width: 36px;
+  height: 12px;
+  background: var(--cream3);
+  border-radius: 4px;
+  animation: pulse 1.2s ease-in-out infinite;
+}
+@keyframes pulse { 0%,100%{opacity:0.5} 50%{opacity:1} }
+
+.cell-opinion, .cell-ws {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.badge {
+  padding: 3px 9px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+}
+.badge-strong-buy  { background: var(--up-bg);   color: var(--up);   }
+.badge-buy         { background: #EAF3FF;         color: var(--info); }
+.badge-hold        { background: var(--cream2);   color: var(--ink2); }
+.badge-strong-sell { background: var(--dn-bg);    color: var(--dn);   }
+.badge-sell        { background: #FCEEE8;         color: #B05020;     }
+.badge-empty       { background: transparent;     color: var(--ink3); font-size:10px; }
+
+.note-row {
+  display: none;
+  grid-column: 1 / -1;
+  padding: 8px 0 2px;
+  font-size: 12px;
+  color: var(--warn);
+  border-top: 1px solid var(--border);
+  margin-top: 8px;
+}
+.note-row.visible { display: block; }
+
+/* ── SORT HEADER ── */
+.sort-col {
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  justify-content: flex-end;
+}
+.sort-col.active { color: var(--ink); }
+.sort-arrow { font-size: 9px; opacity: 0.5; }
+.sort-col.active .sort-arrow { opacity: 1; }
+
+/* ── EMPTY STATE ── */
+.empty {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--ink3);
+}
+.empty-icon { font-size: 36px; margin-bottom: 12px; }
+.empty-text { font-size: 14px; }
+
+/* ── FAB ── */
+.fab {
+  position: fixed;
+  bottom: 24px;
+  right: 20px;
+  width: 52px;
+  height: 52px;
+  background: var(--ink);
+  color: var(--cream);
+  border: none;
+  border-radius: 50%;
+  font-size: 24px;
+  cursor: pointer;
+  box-shadow: 0 4px 20px rgba(44,31,14,0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  transition: transform 0.15s;
+}
+.fab:hover { transform: scale(1.08); }
+
+/* ── MODAL ── */
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  background: rgba(44,31,14,0.5);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+.sheet {
+  width: 100%;
+  max-width: 520px;
+  background: var(--cream);
+  border-radius: 20px 20px 0 0;
+  border-top: 1px solid var(--border);
+  padding: 20px 20px 40px;
+  max-height: 88vh;
+  overflow-y: auto;
+}
+.sheet-handle {
+  width: 36px; height: 4px;
+  background: var(--cream3);
+  border-radius: 2px;
+  margin: 0 auto 20px;
+}
+.sheet-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--ink);
+  margin-bottom: 20px;
+  letter-spacing: -0.3px;
+}
+.field-group { margin-bottom: 14px; }
+.field-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink3);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+}
+.field-inp {
+  width: 100%;
+  padding: 11px 13px;
+  background: var(--card);
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  font-family: var(--font);
+  font-size: 14px;
+  color: var(--ink);
+  outline: none;
+  transition: border-color 0.15s;
+}
+.field-inp:focus { border-color: var(--ink2); }
+.field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.btn-primary {
+  width: 100%;
+  padding: 14px;
+  background: var(--ink);
+  color: var(--cream);
+  border: none;
+  border-radius: 12px;
+  font-family: var(--font);
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  margin-top: 8px;
+  transition: opacity 0.15s;
+}
+.btn-primary:hover { opacity: 0.85; }
+.btn-ghost {
+  width: 100%;
+  padding: 12px;
+  background: transparent;
+  color: var(--ink3);
+  border: none;
+  font-family: var(--font);
+  font-size: 14px;
+  cursor: pointer;
+  margin-top: 6px;
+}
+.btn-danger {
+  width: 100%;
+  padding: 12px;
+  background: var(--dn-bg);
+  color: var(--dn);
+  border: 1px solid rgba(184,50,50,0.2);
+  border-radius: 10px;
+  font-family: var(--font);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 6px;
+}
+
+select.field-inp { -webkit-appearance: none; }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-left">
+    <div class="topbar-logo">WL</div>
+    <span class="topbar-title">Watchlist</span>
+  </div>
+  <div class="topbar-right">
+    <span class="last-update" id="lastUpdate"></span>
+    <button onclick="exportData()" style="padding:7px 12px;background:rgba(92,74,50,0.1);border:1px solid var(--border);border-radius:20px;font-family:var(--font);font-size:12px;font-weight:600;color:var(--ink2);cursor:pointer;">📤 Export</button>
+    <button onclick="importData()" style="padding:7px 12px;background:rgba(92,74,50,0.1);border:1px solid var(--border);border-radius:20px;font-family:var(--font);font-size:12px;font-weight:600;color:var(--ink2);cursor:pointer;">📥 Import</button>
+    <button class="refresh-btn" id="refreshBtn" onclick="fetchPrices()">
+      <span>📡</span> Fiyat Güncelle
+    </button>
+  </div>
+</header>
+
+<div class="stats-bar" id="statsBar"></div>
+
+<div class="controls">
+  <div class="search-wrap">
+    <span class="search-icon">🔍</span>
+    <input class="search-inp" id="searchInp" placeholder="Ticker veya not ara..." oninput="renderTable()">
+  </div>
+  <div class="filter-pills">
+    <div class="fpill active" data-f="all" onclick="setFilter(this)">Tümü</div>
+    <div class="fpill" data-f="STRONG BUY" onclick="setFilter(this)">S.BUY</div>
+    <div class="fpill" data-f="BUY" onclick="setFilter(this)">BUY</div>
+    <div class="fpill" data-f="HOLD" onclick="setFilter(this)">HOLD</div>
+  </div>
+</div>
+
+<div class="table-wrap">
+  <div class="tbl-header">
+    <div>Ticker</div>
+    <div style="text-align:right;cursor:pointer;user-select:none" onclick="cycleSort('price')">Fiyat <span id="sort-price" class="sort-arrow">↕</span></div>
+    <div style="text-align:right">Quant</div>
+    <div style="text-align:right">Wall St.</div>
+    <div style="text-align:right">ER</div>
+  </div>
+  <div id="tableBody"></div>
+</div>
+
+<button class="fab" onclick="openAdd()">+</button>
+
+<script>
+var PROXY_BASE = 'https://voluble-dieffenbachia-243e91.netlify.app';
+var LS_KEY = 'watchlist_v2';
+var LS_PRICES = 'watchlist_prices_v1';
+var prices = {};
+var _fetching = false;
+var sortCol = null, sortDir = 1;
+var activeFilter = 'all';
+
+try { var _p = localStorage.getItem(LS_PRICES); if(_p) prices = JSON.parse(_p); } catch(e){}
+
+// ── SEED DATA (fotoğraftan) ──
+var SEED = [
+  {id:1,  ticker:'POET',  er:'31 MAR', quant:'hold',        ws:'STRONG BUY', note:''},
+  {id:2,  ticker:'ACHR',  er:'07 MAY', quant:'SELL',        ws:'BUY',        note:''},
+  {id:3,  ticker:'EOSE',  er:'05 MAY', quant:'STRONG SELL', ws:'BUY',        note:''},
+  {id:4,  ticker:'OSS',   er:'18 MAR', quant:'hold',        ws:'STRONG BUY', note:''},
+  {id:5,  ticker:'NVTS',  er:'04 MAY', quant:'STRONG BUY',  ws:'hold',       note:''},
+  {id:6,  ticker:'ONDS',  er:'16 MAR', quant:'hold',        ws:'STRONG BUY', note:''},
+  {id:7,  ticker:'PATH',  er:'11 MAR', quant:'BUY',         ws:'hold',       note:''},
+  {id:8,  ticker:'AAL',   er:'27 APR', quant:'hold',        ws:'BUY',        note:''},
+  {id:9,  ticker:'LPTH',  er:'12 FEB', quant:'hold',        ws:'STRONG BUY', note:''},
+  {id:10, ticker:'NTSK',  er:'11 MAR', quant:'-',           ws:'STRONG BUY', note:''},
+  {id:11, ticker:'HIMS',  er:'04 MAY', quant:'STRONG SELL', ws:'hold',       note:''},
+  {id:12, ticker:'SOFI',  er:'27 APR', quant:'hold',        ws:'hold',       note:''},
+  {id:13, ticker:'BMNR',  er:'15 APR', quant:'STRONG SELL', ws:'STRONG BUY', note:''},
+  {id:14, ticker:'CDE',   er:'29 APR', quant:'STRONG BUY',  ws:'BUY',        note:''},
+  {id:15, ticker:'APLD',  er:'09 APR', quant:'hold',        ws:'STRONG BUY', note:''},
+  {id:16, ticker:'SMCI',  er:'05 MAY', quant:'BUY',         ws:'hold',       note:''},
+  {id:17, ticker:'IONQ',  er:'06 MAY', quant:'hold',        ws:'BUY',        note:''},
+  {id:18, ticker:'AXTI',  er:'30 APR', quant:'hold',        ws:'BUY',        note:''},
+  {id:19, ticker:'IREN',  er:'14 MAY', quant:'hold',        ws:'BUY',        note:''},
+  {id:20, ticker:'CELH',  er:'',       quant:'hold',        ws:'BUY',        note:''},
+  {id:21, ticker:'VSAT',  er:'19 MAY', quant:'STRONG BUY',  ws:'BUY',        note:''},
+  {id:22, ticker:'INTC',  er:'23 APR', quant:'hold',        ws:'hold',       note:''},
+  {id:23, ticker:'ROOT',  er:'25 FEB', quant:'STRONG SELL', ws:'BUY',        note:''},
+  {id:24, ticker:'SYM',   er:'04 MAY', quant:'STRONG BUY',  ws:'BUY',        note:'spread kötü'},
+  {id:25, ticker:'RBRK',  er:'12 MAR', quant:'hold',        ws:'STRONG BUY', note:''},
+  {id:26, ticker:'GSAT',  er:'06 MAY', quant:'hold',        ws:'BUY',        note:''},
+  {id:27, ticker:'RKLB',  er:'11 MAY', quant:'hold',        ws:'BUY',        note:''},
+  {id:28, ticker:'UBER',  er:'05 MAY', quant:'BUY',         ws:'BUY',        note:''},
+  {id:29, ticker:'SEZL',  er:'06 MAY', quant:'STRONG BUY',  ws:'BUY',        note:''},
+  {id:30, ticker:'HOOD',  er:'10 FEB', quant:'SELL',        ws:'BUY',        note:''},
+  {id:31, ticker:'ASTS',  er:'12 MAY', quant:'hold',        ws:'hold',       note:''},
+  {id:32, ticker:'CRDO',  er:'02 JUN', quant:'STRONG BUY',  ws:'STRONG BUY', note:''},
+  {id:33, ticker:'NBIS',  er:'24 APR', quant:'STRONG BUY',  ws:'BUY',        note:''},
+  {id:34, ticker:'SHOP',  er:'05 MAY', quant:'hold',        ws:'BUY',        note:''},
+  {id:35, ticker:'APH',   er:'29 APR', quant:'hold',        ws:'BUY',        note:''},
+  {id:36, ticker:'ANET',  er:'04 MAY', quant:'hold',        ws:'STRONG BUY', note:'prim artarsa cazip'},
+  {id:37, ticker:'RDDT',  er:'30 APR', quant:'hold',        ws:'BUY',        note:'prim artarsa cazip'},
+  {id:38, ticker:'DELL',  er:'28 MAY', quant:'STRONG BUY',  ws:'BUY',        note:'düzeltme olursa al'},
+  {id:39, ticker:'PLTR',  er:'04 MAY', quant:'hold',        ws:'hold',       note:''},
+  {id:40, ticker:'BE',    er:'07 MAY', quant:'hold',        ws:'BUY',        note:''},
+  {id:41, ticker:'VICR',  er:'25 FEB', quant:'STRONG BUY',  ws:'STRONG BUY', note:''},
+  {id:42, ticker:'NVDA',  er:'20 MAY', quant:'hold',        ws:'STRONG BUY', note:''},
+  {id:43, ticker:'NET',   er:'07 MAY', quant:'hold',        ws:'BUY',        note:''},
+  {id:44, ticker:'AMD',   er:'28 APR', quant:'STRONG BUY',  ws:'BUY',        note:''},
+  {id:45, ticker:'CRM',   er:'27 MAY', quant:'hold',        ws:'BUY',        note:''},
+  {id:46, ticker:'LRCX',  er:'20 APR', quant:'hold',        ws:'BUY',        note:''},
+  {id:47, ticker:'AMZN',  er:'29 APR', quant:'STRONG BUY',  ws:'STRONG BUY', note:''},
+  {id:48, ticker:'WDC',   er:'30 APR', quant:'hold',        ws:'BUY',        note:''},
+  {id:49, ticker:'CLS',   er:'29 APR', quant:'STRONG BUY',  ws:'STRONG BUY', note:''},
+  {id:50, ticker:'CIEN',  er:'',       quant:'hold',        ws:'BUY',        note:''},
+  {id:51, ticker:'TER',   er:'29 APR', quant:'hold',        ws:'BUY',        note:''},
+  {id:52, ticker:'GE',    er:'21 APR', quant:'hold',        ws:'STRONG BUY', note:''},
+  {id:53, ticker:'ADI',   er:'20 MAY', quant:'hold',        ws:'BUY',        note:''},
+  {id:54, ticker:'AVGO',  er:'04 JUN', quant:'hold',        ws:'STRONG BUY', note:''},
+  {id:55, ticker:'AMAT',  er:'14 MAY', quant:'hold',        ws:'BUY',        note:''},
+  {id:56, ticker:'TSM',   er:'17 APR', quant:'hold',        ws:'STRONG BUY', note:''},
+  {id:57, ticker:'STX',   er:'24 APR', quant:'hold',        ws:'BUY',        note:''},
+];
+
+var data = [];
+try {
+  var _d = localStorage.getItem(LS_KEY);
+  data = _d ? JSON.parse(_d) : JSON.parse(JSON.stringify(SEED));
+} catch(e) {
+  data = JSON.parse(JSON.stringify(SEED));
+}
+if(!data.length) data = JSON.parse(JSON.stringify(SEED));
+
+function save() {
+  try { localStorage.setItem(LS_KEY, JSON.stringify(data)); } catch(e){}
+}
+
+function exportData() {
+  var backup = { _v:1, _date: new Date().toISOString(), _app:'Watchlist', data: data };
+  var json = JSON.stringify(backup, null, 2);
+  var blob = new Blob([json], {type:'application/json'});
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'watchlist-' + new Date().toISOString().split('T')[0] + '.json';
+  a.click();
+  // Toast
+  var t = document.createElement('div');
+  t.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:var(--up);color:#fff;padding:10px 20px;border-radius:10px;font-size:13px;font-weight:600;z-index:9999;white-space:nowrap;box-shadow:0 4px 16px rgba(0,0,0,.15)';
+  t.textContent = '✅ ' + data.length + ' ticker dışa aktarıldı';
+  document.body.appendChild(t);
+  setTimeout(function(){ t.remove(); }, 3000);
+}
+
+function importData() {
+  var m = document.createElement('div');
+  m.className = 'overlay';
+
+  var sh = document.createElement('div');
+  sh.className = 'sheet';
+
+  var handle = document.createElement('div'); handle.className='sheet-handle';
+
+  var ttl = document.createElement('div');
+  ttl.className = 'sheet-title';
+  ttl.textContent = '📥 Watchlist İçe Aktar';
+
+  var desc = document.createElement('div');
+  desc.style.cssText = 'font-size:13px;color:var(--ink3);margin-bottom:16px;line-height:1.5';
+  desc.textContent = 'Daha önce export ettiğin JSON dosyasını seç. Mevcut liste yeni veriyle değiştirilecek.';
+
+  var fileBtn = document.createElement('button');
+  fileBtn.className = 'btn-primary';
+  fileBtn.style.marginTop = '0';
+  fileBtn.textContent = '📂 Dosya Seç (.json)';
+
+  var fileInp = document.createElement('input');
+  fileInp.type='file'; fileInp.accept='.json'; fileInp.style.display='none';
+
+  fileBtn.onclick = function(){ fileInp.click(); };
+
+  fileInp.onchange = function(e) {
+    var file = e.target.files[0]; if(!file) return;
+    fileBtn.textContent = '📄 ' + file.name;
+    fileBtn.style.background = 'var(--up)';
+    var reader = new FileReader();
+    reader.onload = function(ev) {
+      try {
+        var d = JSON.parse(ev.target.result);
+        var imported = d.data || (Array.isArray(d) ? d : null);
+        if(!imported || !imported.length) { alert('Geçersiz dosya formatı'); return; }
+        data = imported;
+        save();
+        m.remove();
+        renderTable();
+        var t = document.createElement('div');
+        t.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:var(--up);color:#fff;padding:10px 20px;border-radius:10px;font-size:13px;font-weight:600;z-index:9999;white-space:nowrap;box-shadow:0 4px 16px rgba(0,0,0,.15)';
+        t.textContent = '✅ ' + data.length + ' ticker içe aktarıldı';
+        document.body.appendChild(t);
+        setTimeout(function(){ t.remove(); }, 3000);
+      } catch(err) {
+        alert('Hata: ' + err.message);
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  var cancelBtn = document.createElement('button');
+  cancelBtn.className = 'btn-ghost';
+  cancelBtn.textContent = 'İptal';
+  cancelBtn.onclick = function(){ m.remove(); };
+
+  sh.appendChild(handle); sh.appendChild(ttl); sh.appendChild(desc);
+  sh.appendChild(fileBtn); sh.appendChild(fileInp); sh.appendChild(cancelBtn);
+  m.appendChild(sh);
+  document.body.appendChild(m);
+  m.onclick = function(e){ if(e.target===m) m.remove(); };
+}
+
+// ── BADGES ──
+function badgeHtml(val) {
+  if(!val || val === '-') return '<span class="badge badge-empty">—</span>';
+  var v = val.trim().toUpperCase();
+  if(v === 'STRONG BUY')  return '<span class="badge badge-strong-buy">S.BUY</span>';
+  if(v === 'BUY')         return '<span class="badge badge-buy">BUY</span>';
+  if(v === 'HOLD')        return '<span class="badge badge-hold">Hold</span>';
+  if(v === 'STRONG SELL') return '<span class="badge badge-strong-sell">S.SELL</span>';
+  if(v === 'SELL')        return '<span class="badge badge-sell">Sell</span>';
+  return '<span class="badge badge-hold">'+val+'</span>';
+}
+
+// ── FILTER ──
+function setFilter(el) {
+  document.querySelectorAll('.fpill').forEach(function(p){ p.classList.remove('active'); });
+  el.classList.add('active');
+  activeFilter = el.dataset.f;
+  renderTable();
+}
+
+function passesFilter(row) {
+  if(activeFilter === 'all') return true;
+  var v = (row.quant||'').trim().toUpperCase();
+  var f = activeFilter.toUpperCase();
+  if(f === 'BUY') return v === 'BUY' || v === 'STRONG BUY';
+  return v === f;
+}
+
+// ── SORT ──
+function cycleSort(col) {
+  if(sortCol === col) sortDir *= -1;
+  else { sortCol = col; sortDir = 1; }
+  renderTable();
+}
+
+// ── STATS ──
+function renderStats() {
+  var sb = data.filter(function(r){ return (r.quant||'').toUpperCase()==='STRONG BUY'; }).length;
+  var b  = data.filter(function(r){ var v=(r.quant||'').toUpperCase(); return v==='BUY'||v==='STRONG BUY'; }).length;
+  var ss = data.filter(function(r){ var v=(r.quant||'').toUpperCase(); return v==='SELL'||v==='STRONG SELL'; }).length;
+  var withPrice = data.filter(function(r){ return prices[r.ticker] > 0; }).length;
+  document.getElementById('statsBar').innerHTML =
+    '<div class="stat-chip"><div class="stat-chip-lbl">Toplam</div><div class="stat-chip-val">'+data.length+'</div></div>' +
+    '<div class="stat-chip"><div class="stat-chip-lbl">Strong Buy</div><div class="stat-chip-val" style="color:var(--up)">'+sb+'</div></div>' +
+    '<div class="stat-chip"><div class="stat-chip-lbl">Buy+</div><div class="stat-chip-val" style="color:var(--info)">'+b+'</div></div>' +
+    '<div class="stat-chip"><div class="stat-chip-lbl">Sell+</div><div class="stat-chip-val" style="color:var(--dn)">'+ss+'</div></div>' +
+    '<div class="stat-chip"><div class="stat-chip-lbl">Fiyat</div><div class="stat-chip-val">'+withPrice+'/'+data.length+'</div></div>';
+}
+
+// ── RENDER TABLE ──
+function renderTable() {
+  var q = document.getElementById('searchInp').value.trim().toLowerCase();
+  var rows = data.filter(function(r) {
+    if(!passesFilter(r)) return false;
+    if(!q) return true;
+    return r.ticker.toLowerCase().includes(q) ||
+           (r.note||'').toLowerCase().includes(q) ||
+           (r.exp||'').toLowerCase().includes(q);
+  });
+
+  if(sortCol === 'price') {
+    rows.sort(function(a,b){
+      var pa = prices[a.ticker]||a.price_ref||0;
+      var pb = prices[b.ticker]||b.price_ref||0;
+      return (pa-pb)*sortDir;
+    });
+  }
+
+  renderStats();
+
+  var body = document.getElementById('tableBody');
+  if(!rows.length) {
+    body.innerHTML = '<div class="empty"><div class="empty-icon">🔍</div><div class="empty-text">Sonuç bulunamadı</div></div>';
+    return;
+  }
+
+  body.innerHTML = rows.map(function(r, idx) {
+    var sp = prices[r.ticker];
+    var priceHtml;
+    if(sp > 0) {
+      priceHtml = '<span style="font-family:var(--mono);font-size:14px;font-weight:500;">$' + sp.toFixed(2) + '</span>';
+    } else {
+      priceHtml = '<span class="price-loading"></span>';
+    }
+    var noteHtml = r.note ? '<div class="note-row visible" style="font-size:11px;color:var(--warn);padding-top:6px;margin-top:6px;border-top:1px solid var(--border);">💬 '+r.note+'</div>' : '';
+    return '<div class="tbl-row" style="animation-delay:'+Math.min(idx*0.03,0.3)+'s" onclick="openEdit('+r.id+')">' +
+      '<div class="cell-ticker">' +
+        '<div class="ticker-name"><strong>'+r.ticker+'</strong></div>' +
+        (r.note?'<div style="font-size:10px;color:var(--ink3);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px;">'+r.note+'</div>':'') +
+      '</div>' +
+      '<div class="cell-price" style="text-align:right">'+priceHtml+'</div>' +
+      '<div class="cell-opinion" style="justify-content:flex-end">'+badgeHtml(r.quant)+'</div>' +
+      '<div class="cell-ws" style="justify-content:flex-end">'+badgeHtml(r.ws)+'</div>' +
+      '<div style="text-align:right;font-size:11px;font-family:var(--mono);color:var(--ink2);white-space:nowrap;">'+(r.er||'—')+'</div>' +
+    '</div>';
+  }).join('');
+}
+
+// ── PRICE FETCH ──
+function fetchPrices() {
+  if(_fetching) return;
+  var tickers = data.map(function(r){ return r.ticker; });
+  var unique = tickers.filter(function(t,i){ return tickers.indexOf(t)===i; });
+  if(!unique.length) return;
+
+  var btn = document.getElementById('refreshBtn');
+  btn.innerHTML = '<span>⟳</span> Güncelleniyor...';
+  btn.disabled = true;
+  _fetching = true;
+
+  var url = PROXY_BASE + '/.netlify/functions/quote?symbol=' + unique.map(encodeURIComponent).join(',');
+  fetch(url)
+    .then(function(r){ if(!r.ok) throw new Error(r.status); return r.json(); })
+    .then(function(res) {
+      var list = [];
+      if(Array.isArray(res)) list = res;
+      else if(res.quotes) list = res.quotes;
+      else if(res.symbol) list = [res];
+      else { Object.keys(res).forEach(function(k){ if(res[k]&&res[k].price) list.push({symbol:k,price:res[k].price}); }); }
+      var updated = 0;
+      list.forEach(function(q){
+        var p = q.price || q.regularMarketPrice || 0;
+        if(q.symbol && p > 0){ prices[q.symbol.toUpperCase()] = Math.round(p*100)/100; updated++; }
+      });
+      // Sequential fallback for missed ones
+      var missed = unique.filter(function(t){ return !(prices[t]>0); });
+      var chain = Promise.resolve();
+      missed.forEach(function(t){
+        chain = chain.then(function(){
+          return fetch(PROXY_BASE+'/.netlify/functions/quote?symbol='+encodeURIComponent(t))
+            .then(function(r){ return r.json(); })
+            .then(function(q){
+              var p = q.price || q.regularMarketPrice || 0;
+              if(p>0){ prices[t.toUpperCase()] = Math.round(p*100)/100; updated++; }
+            }).catch(function(){});
+        });
+      });
+      return chain.then(function(){ return updated; });
+    })
+    .then(function(updated){
+      _fetching = false;
+      try{ localStorage.setItem(LS_PRICES, JSON.stringify(prices)); }catch(e){}
+      var now = new Date();
+      document.getElementById('lastUpdate').textContent = now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0');
+      btn.innerHTML = '✓ '+updated+' güncellendi';
+      btn.style.background = 'var(--up)';
+      setTimeout(function(){
+        btn.innerHTML = '<span>📡</span> Fiyat Güncelle';
+        btn.style.background = '';
+        btn.disabled = false;
+      }, 4000);
+      renderTable();
+    })
+    .catch(function(err){
+      _fetching = false;
+      btn.innerHTML = '✗ Hata';
+      btn.style.background = 'var(--dn)';
+      setTimeout(function(){ btn.innerHTML = '<span>📡</span> Fiyat Güncelle'; btn.style.background=''; btn.disabled=false; }, 3000);
+      console.error(err);
+    });
+}
+
+// ── ADD / EDIT MODAL ──
+var editingId = null;
+
+function openAdd() {
+  editingId = null;
+  showModal(null);
+}
+
+function openEdit(id) {
+  editingId = id;
+  var row = data.find(function(r){ return r.id===id; });
+  showModal(row);
+}
+
+function showModal(row) {
+  var isEdit = !!row;
+  var m = document.createElement('div');
+  m.className = 'overlay';
+
+  var qOpts = ['STRONG BUY','BUY','HOLD','SELL','STRONG SELL','-'].map(function(v){
+    return '<option value="'+v+'"'+(row&&(row.quant||'')===v?' selected':'')+'>'+v+'</option>';
+  }).join('');
+  var wsOpts = ['STRONG BUY','BUY','HOLD','SELL','STRONG SELL','-'].map(function(v){
+    return '<option value="'+v+'"'+(row&&(row.ws||'')===v?' selected':'')+'>'+v+'</option>';
+  }).join('');
+
+  m.innerHTML = '<div class="sheet">' +
+    '<div class="sheet-handle"></div>' +
+    '<div class="sheet-title">'+(isEdit?'✎ Düzenle':'+ Yeni Ticker')+'</div>' +
+    '<div class="field-row">' +
+      '<div class="field-group"><div class="field-label">Ticker</div><input class="field-inp" id="f_ticker" placeholder="NVDA" style="text-transform:uppercase" value="'+(row?row.ticker:'')+'" autocapitalize="characters"></div>' +
+      '<div class="field-group"><div class="field-label">ER Tarihi</div><input class="field-inp" id="f_er" placeholder="14 MAY" value="'+(row?row.er||'':'')+'" ></div>' +
+    '</div>' +
+    '<div class="field-row">' +
+      '<div class="field-group"><div class="field-label">Quant</div><select class="field-inp" id="f_quant">'+qOpts+'</select></div>' +
+      '<div class="field-group"><div class="field-label">Wall Street</div><select class="field-inp" id="f_ws">'+wsOpts+'</select></div>' +
+    '</div>' +
+    '<div class="field-group"><div class="field-label">Not (opsiyonel)</div><input class="field-inp" id="f_note" placeholder="prim artarsa cazip..." value="'+(row?row.note||'':'')+'" ></div>' +
+    '<button class="btn-primary" onclick="saveRow()">'+(isEdit?'✅ Kaydet':'✅ Ekle')+'</button>' +
+    (isEdit?'<button class="btn-danger" onclick="deleteRow('+row.id+')">🗑 Sil</button>':'') +
+    '<button class="btn-ghost" onclick="this.closest(\'.overlay\').remove()">İptal</button>' +
+  '</div>';
+
+  document.body.appendChild(m);
+  m.addEventListener('click', function(e){ if(e.target===m) m.remove(); });
+  setTimeout(function(){ document.getElementById('f_ticker').focus(); }, 100);
+}
+
+function saveRow() {
+  var ticker = (document.getElementById('f_ticker').value||'').trim().toUpperCase();
+  if(!ticker) { alert('Ticker gerekli'); return; }
+  var er     = (document.getElementById('f_er').value||'').trim();
+  var quant  = document.getElementById('f_quant').value;
+  var ws     = document.getElementById('f_ws').value;
+  var note   = (document.getElementById('f_note').value||'').trim();
+
+  if(editingId) {
+    var idx = data.findIndex(function(r){ return r.id===editingId; });
+    if(idx>=0){ data[idx].ticker=ticker; data[idx].er=er; data[idx].quant=quant; data[idx].ws=ws; data[idx].note=note; }
+  } else {
+    var newId = Math.max.apply(null, data.map(function(r){return r.id;})) + 1;
+    data.push({id:newId, ticker:ticker, er:er, price_ref:0, quant:quant, ws:ws, note:note});
+  }
+  save();
+  document.querySelector('.overlay').remove();
+  renderTable();
+}
+
+function deleteRow(id) {
+  var m2 = document.createElement('div');
+  m2.className = 'overlay';
+  m2.innerHTML = '<div class="sheet" style="text-align:center">' +
+    '<div class="sheet-handle"></div>' +
+    '<div style="font-size:28px;margin-bottom:10px">🗑</div>' +
+    '<div class="sheet-title" style="text-align:center">Silmek istediğine emin misin?</div>' +
+    '<div style="display:flex;gap:10px;margin-top:10px">' +
+      '<button class="btn-ghost" style="flex:1;border:1px solid var(--border);border-radius:10px" onclick="this.closest(\'.overlay\').remove()">İptal</button>' +
+      '<button style="flex:1;padding:12px;background:var(--dn-bg);color:var(--dn);border:1px solid rgba(184,50,50,.2);border-radius:10px;font-family:var(--font);font-size:14px;font-weight:700;cursor:pointer" onclick="confirmDelete('+id+')">Sil</button>' +
+    '</div>' +
+  '</div>';
+  document.querySelectorAll('.overlay').forEach(function(o){ o.remove(); });
+  document.body.appendChild(m2);
+  m2.addEventListener('click', function(e){ if(e.target===m2) m2.remove(); });
+}
+
+function confirmDelete(id) {
+  data = data.filter(function(r){ return r.id!==id; });
+  save();
+  document.querySelectorAll('.overlay').forEach(function(o){ o.remove(); });
+  renderTable();
+}
+
+// ── INIT ──
+renderTable();
+</script>
+</body>
+</html>
