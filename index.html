@@ -199,46 +199,57 @@ body {
   padding: 0 20px 100px;
 }
 
-:root {
-  --grid-cols: 1fr 88px 76px 88px 68px;
+.tbl-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0 7px;
 }
 
-.tbl-header {
-  display: grid;
-  grid-template-columns: var(--grid-cols);
-  padding: 6px 16px;
+.tbl-table thead th {
   font-size: 10px;
   font-weight: 700;
   color: var(--ink3);
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  column-gap: 0;
+  padding: 4px 10px;
+  white-space: nowrap;
 }
+.tbl-table thead th:first-child { padding-left: 4px; }
+.tbl-table thead th:last-child  { padding-right: 4px; }
 
-.tbl-row {
+.tbl-table tbody tr {
   background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  display: grid;
-  grid-template-columns: var(--grid-cols);
-  align-items: center;
-  padding: 11px 16px;
-  margin-bottom: 7px;
+  box-shadow: var(--shadow);
   cursor: pointer;
   transition: all 0.15s;
-  box-shadow: var(--shadow);
   animation: fadeIn 0.2s ease both;
-  column-gap: 0;
 }
-.tbl-row:hover { transform: translateY(-1px); box-shadow: 0 4px 20px rgba(44,31,14,0.12); }
-.tbl-row:active { transform: translateY(0); }
+.tbl-table tbody tr:hover td { background: #FFFBF5; }
+.tbl-table tbody tr:hover { transform: translateY(-1px); }
+
+.tbl-table tbody td {
+  padding: 11px 10px;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+.tbl-table tbody td:first-child {
+  border-left: 1px solid var(--border);
+  border-radius: 12px 0 0 12px;
+  padding-left: 14px;
+}
+.tbl-table tbody td:last-child {
+  border-right: 1px solid var(--border);
+  border-radius: 0 12px 12px 0;
+  padding-right: 14px;
+}
 
 @keyframes fadeIn {
   from { opacity:0; transform: translateY(4px); }
   to   { opacity:1; transform: translateY(0); }
 }
 
-.cell-ticker { display: flex; flex-direction: column; gap: 2px; min-width: 0; overflow: hidden; }
+.cell-ticker { display: flex; flex-direction: column; gap: 2px; }
 .ticker-name {
   font-size: 14px;
   font-weight: 700;
@@ -484,14 +495,18 @@ select.field-inp { -webkit-appearance: none; }
 </div>
 
 <div class="table-wrap">
-  <div class="tbl-header">
-    <div>Ticker</div>
-    <div style="text-align:right;cursor:pointer;user-select:none" onclick="cycleSort('price')">Fiyat <span id="sort-price" class="sort-arrow">↕</span></div>
-    <div style="text-align:right">Quant</div>
-    <div style="text-align:right">Wall St.</div>
-    <div style="text-align:right">ER</div>
-  </div>
-  <div id="tableBody"></div>
+  <table class="tbl-table">
+    <thead>
+      <tr>
+        <th style="text-align:left">Ticker</th>
+        <th style="text-align:right;cursor:pointer;user-select:none" onclick="cycleSort('price')">Fiyat <span id="sort-price">↕</span></th>
+        <th style="text-align:right">Quant</th>
+        <th style="text-align:right">Wall St.</th>
+        <th style="text-align:right;cursor:pointer;user-select:none" onclick="cycleSort('er')">ER <span id="sort-er">↕</span></th>
+      </tr>
+    </thead>
+    <tbody id="tableBody"></tbody>
+  </table>
 </div>
 
 <button class="fab" onclick="openAdd()">+</button>
@@ -694,6 +709,13 @@ function passesFilter(row) {
 function cycleSort(col) {
   if(sortCol === col) sortDir *= -1;
   else { sortCol = col; sortDir = 1; }
+  // İkonları güncelle
+  ['price','er'].forEach(function(c){
+    var el = document.getElementById('sort-'+c);
+    if(!el) return;
+    if(sortCol === c) el.textContent = sortDir === 1 ? '↑' : '↓';
+    else el.textContent = '↕';
+  });
   renderTable();
 }
 
@@ -728,13 +750,27 @@ function renderTable() {
       var pb = prices[b.ticker]||b.price_ref||0;
       return (pa-pb)*sortDir;
     });
+  } else if(sortCol === 'er') {
+    // "14 MAY", "02 JUN" gibi tarihleri karşılaştır
+    var months = {JAN:1,FEB:2,MAR:3,APR:4,MAY:5,JUN:6,JUL:7,AUG:8,SEP:9,OCT:10,NOV:11,DEC:12};
+    function erToNum(er) {
+      if(!er) return 9999;
+      var parts = er.trim().toUpperCase().split(' ');
+      if(parts.length < 2) return 9999;
+      var day = parseInt(parts[0]) || 0;
+      var mon = months[parts[1]] || 0;
+      return mon * 100 + day;
+    }
+    rows.sort(function(a,b){
+      return (erToNum(a.er) - erToNum(b.er)) * sortDir;
+    });
   }
 
   renderStats();
 
   var body = document.getElementById('tableBody');
   if(!rows.length) {
-    body.innerHTML = '<div class="empty"><div class="empty-icon">🔍</div><div class="empty-text">Sonuç bulunamadı</div></div>';
+    body.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:40px;color:var(--ink3);border:none"><div style="font-size:28px;margin-bottom:8px">🔍</div>Sonuç bulunamadı</td></tr>';
     return;
   }
 
@@ -747,16 +783,18 @@ function renderTable() {
       priceHtml = '<span class="price-loading"></span>';
     }
     var noteHtml = r.note ? '<div class="note-row visible" style="font-size:11px;color:var(--warn);padding-top:6px;margin-top:6px;border-top:1px solid var(--border);">💬 '+r.note+'</div>' : '';
-    return '<div class="tbl-row" style="animation-delay:'+Math.min(idx*0.03,0.3)+'s" onclick="openEdit('+r.id+')">' +
-      '<div class="cell-ticker">' +
-        '<div class="ticker-name"><strong>'+r.ticker+'</strong></div>' +
-        (r.note?'<div style="font-size:10px;color:var(--ink3);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px;">'+r.note+'</div>':'') +
-      '</div>' +
-      '<div class="cell-price">'+priceHtml+'</div>' +
-      '<div class="cell-opinion">'+badgeHtml(r.quant)+'</div>' +
-      '<div class="cell-ws">'+badgeHtml(r.ws)+'</div>' +
-      '<div style="text-align:right;font-size:11px;font-family:var(--mono);color:var(--ink2);white-space:nowrap;display:flex;justify-content:flex-end;align-items:center;">'+(r.er||'—')+'</div>' +
-    '</div>';
+    return '<tr style="animation-delay:'+Math.min(idx*0.03,0.3)+'s" onclick="openEdit('+r.id+')">' +
+      '<td>' +
+        '<div class="cell-ticker">' +
+          '<div class="ticker-name"><strong>'+r.ticker+'</strong></div>' +
+          (r.note?'<div style="font-size:10px;color:var(--ink3);margin-top:1px;max-width:140px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+r.note+'</div>':'') +
+        '</div>' +
+      '</td>' +
+      '<td style="text-align:right">'+priceHtml+'</td>' +
+      '<td style="text-align:right">'+badgeHtml(r.quant)+'</td>' +
+      '<td style="text-align:right">'+badgeHtml(r.ws)+'</td>' +
+      '<td style="text-align:right;font-size:11px;font-family:var(--mono);color:var(--ink2);white-space:nowrap;">'+(r.er||'—')+'</td>' +
+    '</tr>';
   }).join('');
 }
 
