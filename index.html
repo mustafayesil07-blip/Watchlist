@@ -751,10 +751,48 @@ function renderTable() {
 }
 
 // ── PRICE FETCH ──
+function _parseQuotes(res) {
+  var list = [];
+  if(Array.isArray(res)) list = res;
+  else if(res.quotes) list = res.quotes;
+  else if(res.symbol) list = [res];
+  else { Object.keys(res).forEach(function(k){ if(res[k]&&res[k].price) list.push({symbol:k,price:res[k].price}); }); }
+  var updated = 0;
+  list.forEach(function(q){
+    var p = q.price || q.regularMarketPrice || 0;
+    if(q.symbol && p > 0){ prices[q.symbol.toUpperCase()] = Math.round(p*100)/100; updated++; }
+  });
+  return updated;
+}
+
+function _fetchBatch(batch) {
+  var url = PROXY_BASE + '/.netlify/functions/quote?symbol=' + batch.map(encodeURIComponent).join(',');
+  return fetch(url)
+    .then(function(r){ if(!r.ok) throw new Error(r.status); return r.json(); })
+    .then(function(res){ return _parseQuotes(res); })
+    .catch(function(err){
+      // Batch başarısız → tek tek dene
+      console.warn('Batch failed, going sequential:', err.message);
+      var chain = Promise.resolve(0);
+      batch.forEach(function(t){
+        chain = chain.then(function(acc){
+          return fetch(PROXY_BASE+'/.netlify/functions/quote?symbol='+encodeURIComponent(t))
+            .then(function(r){ return r.json(); })
+            .then(function(q){
+              var p = q.price || q.regularMarketPrice || 0;
+              if(p>0){ prices[t.toUpperCase()] = Math.round(p*100)/100; return acc+1; }
+              return acc;
+            }).catch(function(){ return acc; });
+        });
+      });
+      return chain;
+    });
+}
+
 function fetchPrices() {
   if(_fetching) return;
-  var tickers = data.map(function(r){ return r.ticker; });
-  var unique = tickers.filter(function(t,i){ return tickers.indexOf(t)===i; });
+  var unique = data.map(function(r){ return r.ticker; })
+    .filter(function(t,i,a){ return a.indexOf(t)===i; });
   if(!unique.length) return;
 
   var btn = document.getElementById('refreshBtn');
@@ -762,56 +800,43 @@ function fetchPrices() {
   btn.disabled = true;
   _fetching = true;
 
-  var url = PROXY_BASE + '/.netlify/functions/quote?symbol=' + unique.map(encodeURIComponent).join(',');
-  fetch(url)
-    .then(function(r){ if(!r.ok) throw new Error(r.status); return r.json(); })
-    .then(function(res) {
-      var list = [];
-      if(Array.isArray(res)) list = res;
-      else if(res.quotes) list = res.quotes;
-      else if(res.symbol) list = [res];
-      else { Object.keys(res).forEach(function(k){ if(res[k]&&res[k].price) list.push({symbol:k,price:res[k].price}); }); }
-      var updated = 0;
-      list.forEach(function(q){
-        var p = q.price || q.regularMarketPrice || 0;
-        if(q.symbol && p > 0){ prices[q.symbol.toUpperCase()] = Math.round(p*100)/100; updated++; }
-      });
-      // Sequential fallback for missed ones
-      var missed = unique.filter(function(t){ return !(prices[t]>0); });
-      var chain = Promise.resolve();
-      missed.forEach(function(t){
-        chain = chain.then(function(){
-          return fetch(PROXY_BASE+'/.netlify/functions/quote?symbol='+encodeURIComponent(t))
-            .then(function(r){ return r.json(); })
-            .then(function(q){
-              var p = q.price || q.regularMarketPrice || 0;
-              if(p>0){ prices[t.toUpperCase()] = Math.round(p*100)/100; updated++; }
-            }).catch(function(){});
-        });
-      });
-      return chain.then(function(){ return updated; });
-    })
-    .then(function(updated){
-      _fetching = false;
-      try{ localStorage.setItem(LS_PRICES, JSON.stringify(prices)); }catch(e){}
-      var now = new Date();
-      document.getElementById('lastUpdate').textContent = now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0');
-      btn.innerHTML = '✓ '+updated+' güncellendi';
-      btn.style.background = 'var(--up)';
-      setTimeout(function(){
-        btn.innerHTML = '<span>📡</span> Fiyat Güncelle';
-        btn.style.background = '';
-        btn.disabled = false;
-      }, 4000);
-      renderTable();
-    })
-    .catch(function(err){
-      _fetching = false;
-      btn.innerHTML = '✗ Hata';
-      btn.style.background = 'var(--dn)';
-      setTimeout(function(){ btn.innerHTML = '<span>📡</span> Fiyat Güncelle'; btn.style.background=''; btn.disabled=false; }, 3000);
-      console.error(err);
+  // 10'ar 10'ar batch'le — 57 ticker için ~6 istek
+  var BATCH = 10;
+  var batches = [];
+  for(var i=0; i<unique.length; i+=BATCH){
+    batches.push(unique.slice(i, i+BATCH));
+  }
+
+  var totalUpdated = 0;
+  var chain = Promise.resolve();
+  batches.forEach(function(batch, bi){
+    chain = chain.then(function(){
+      btn.innerHTML = '<span>⟳</span> ' + Math.round((bi/batches.length)*100) + '%...';
+      return _fetchBatch(batch).then(function(n){ totalUpdated += n; });
     });
+  });
+
+  chain.then(function(){
+    _fetching = false;
+    try{ localStorage.setItem(LS_PRICES, JSON.stringify(prices)); }catch(e){}
+    var now = new Date();
+    document.getElementById('lastUpdate').textContent =
+      now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0');
+    btn.innerHTML = '✓ '+totalUpdated+'/'+unique.length+' güncellendi';
+    btn.style.background = totalUpdated===0?'var(--dn)':totalUpdated<unique.length?'#C07A10':'var(--up)';
+    setTimeout(function(){
+      btn.innerHTML = '<span>📡</span> Fiyat Güncelle';
+      btn.style.background = '';
+      btn.disabled = false;
+    }, 5000);
+    renderTable();
+  }).catch(function(err){
+    _fetching = false;
+    btn.innerHTML = '✗ Hata';
+    btn.style.background = 'var(--dn)';
+    btn.disabled = false;
+    console.error(err);
+  });
 }
 
 // ── ADD / EDIT MODAL ──
