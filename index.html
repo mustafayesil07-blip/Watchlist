@@ -199,15 +199,20 @@ body {
   padding: 0 20px 100px;
 }
 
+:root {
+  --grid-cols: 1fr 88px 76px 88px 68px;
+}
+
 .tbl-header {
   display: grid;
-  grid-template-columns: 1fr 90px 80px 90px 72px;
-  padding: 8px 14px;
+  grid-template-columns: var(--grid-cols);
+  padding: 6px 16px;
   font-size: 10px;
   font-weight: 700;
   color: var(--ink3);
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  column-gap: 0;
 }
 
 .tbl-row {
@@ -215,14 +220,15 @@ body {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   display: grid;
-  grid-template-columns: 1fr 90px 80px 90px 72px;
+  grid-template-columns: var(--grid-cols);
   align-items: center;
-  padding: 12px 14px;
+  padding: 11px 16px;
   margin-bottom: 7px;
   cursor: pointer;
   transition: all 0.15s;
   box-shadow: var(--shadow);
   animation: fadeIn 0.2s ease both;
+  column-gap: 0;
 }
 .tbl-row:hover { transform: translateY(-1px); box-shadow: 0 4px 20px rgba(44,31,14,0.12); }
 .tbl-row:active { transform: translateY(0); }
@@ -232,7 +238,7 @@ body {
   to   { opacity:1; transform: translateY(0); }
 }
 
-.cell-ticker { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.cell-ticker { display: flex; flex-direction: column; gap: 2px; min-width: 0; overflow: hidden; }
 .ticker-name {
   font-size: 14px;
   font-weight: 700;
@@ -254,6 +260,9 @@ body {
   font-weight: 500;
   color: var(--ink);
   text-align: right;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
 }
 .price-loading {
   display: inline-block;
@@ -268,6 +277,7 @@ body {
 .cell-opinion, .cell-ws {
   display: flex;
   justify-content: flex-end;
+  align-items: center;
 }
 
 .badge {
@@ -742,10 +752,10 @@ function renderTable() {
         '<div class="ticker-name"><strong>'+r.ticker+'</strong></div>' +
         (r.note?'<div style="font-size:10px;color:var(--ink3);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px;">'+r.note+'</div>':'') +
       '</div>' +
-      '<div class="cell-price" style="text-align:right">'+priceHtml+'</div>' +
-      '<div class="cell-opinion" style="justify-content:flex-end">'+badgeHtml(r.quant)+'</div>' +
-      '<div class="cell-ws" style="justify-content:flex-end">'+badgeHtml(r.ws)+'</div>' +
-      '<div style="text-align:right;font-size:11px;font-family:var(--mono);color:var(--ink2);white-space:nowrap;">'+(r.er||'—')+'</div>' +
+      '<div class="cell-price">'+priceHtml+'</div>' +
+      '<div class="cell-opinion">'+badgeHtml(r.quant)+'</div>' +
+      '<div class="cell-ws">'+badgeHtml(r.ws)+'</div>' +
+      '<div style="text-align:right;font-size:11px;font-family:var(--mono);color:var(--ink2);white-space:nowrap;display:flex;justify-content:flex-end;align-items:center;">'+(r.er||'—')+'</div>' +
     '</div>';
   }).join('');
 }
