@@ -4,6 +4,18 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
 <title>Watchlist</title>
+<link rel="manifest" href="manifest.json">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Watchlist">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<script>
+  if('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/Watchlist/sw.js', {scope: '/Watchlist/'});
+  }
+</script>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root {
@@ -512,7 +524,7 @@ select.field-inp { -webkit-appearance: none; }
 <button class="fab" onclick="openAdd()">+</button>
 
 <script>
-var PROXY_BASE = 'https://voluble-dieffenbachia-243e91.netlify.app';
+var PROXY_BASE = 'https://hisse-portfoyu.vercel.app';
 var LS_KEY = 'watchlist_v2';
 var LS_PRICES = 'watchlist_prices_v1';
 var prices = {};
@@ -814,7 +826,7 @@ function _parseQuotes(res) {
 }
 
 function _fetchBatch(batch) {
-  var url = PROXY_BASE + '/.netlify/functions/quote?symbol=' + batch.map(encodeURIComponent).join(',');
+  var url = PROXY_BASE + '/api/quote?symbol=' + batch.map(encodeURIComponent).join(',');
   return fetch(url)
     .then(function(r){ if(!r.ok) throw new Error(r.status); return r.json(); })
     .then(function(res){ return _parseQuotes(res); })
@@ -824,7 +836,7 @@ function _fetchBatch(batch) {
       var chain = Promise.resolve(0);
       batch.forEach(function(t){
         chain = chain.then(function(acc){
-          return fetch(PROXY_BASE+'/.netlify/functions/quote?symbol='+encodeURIComponent(t))
+          return fetch(PROXY_BASE+'/api/quote?symbol='+encodeURIComponent(t))
             .then(function(r){ return r.json(); })
             .then(function(q){
               var p = q.price || q.regularMarketPrice || 0;
