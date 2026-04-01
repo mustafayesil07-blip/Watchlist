@@ -41,6 +41,53 @@
   --mono:     'DM Mono', monospace;
 }
 
+[data-theme="dark"] {
+  --cream:  #1C1814;
+  --cream2: #252018;
+  --cream3: #2E2820;
+  --ink:    #F0E8DC;
+  --ink2:   #C4AE92;
+  --ink3:   #8A7860;
+  --up:     #2EA862;
+  --up-bg:  #0D2B1A;
+  --dn:     #D04040;
+  --dn-bg:  #2B0D0D;
+  --warn:   #D08820;
+  --warn-bg:#2B1E08;
+  --info:   #4080CC;
+  --info-bg:#0D1D33;
+  --card:   #221E19;
+  --border: rgba(200,175,140,0.1);
+  --shadow: 0 2px 12px rgba(0,0,0,0.45);
+}
+[data-theme="dark"] .topbar {
+  background: rgba(28,24,20,0.94);
+}
+[data-theme="dark"] .search-inp,
+[data-theme="dark"] .field-inp {
+  background: var(--card);
+  color: var(--ink);
+}
+[data-theme="dark"] .sheet {
+  background: #201C17;
+}
+
+.theme-btn {
+  width: 32px;
+  height: 32px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  font-size: 15px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+.theme-btn:hover { background: var(--cream2); }
+
 * { box-sizing:border-box; margin:0; padding:0; }
 
 body {
@@ -485,6 +532,7 @@ select.field-inp { -webkit-appearance: none; }
     <span class="last-update" id="lastUpdate"></span>
     <button onclick="exportData()" style="padding:7px 12px;background:rgba(92,74,50,0.1);border:1px solid var(--border);border-radius:20px;font-family:var(--font);font-size:12px;font-weight:600;color:var(--ink2);cursor:pointer;">📤 Export</button>
     <button onclick="importData()" style="padding:7px 12px;background:rgba(92,74,50,0.1);border:1px solid var(--border);border-radius:20px;font-family:var(--font);font-size:12px;font-weight:600;color:var(--ink2);cursor:pointer;">📥 Import</button>
+    <button class="theme-btn" id="themeBtn" onclick="toggleTheme()" title="Tema değiştir">🌙</button>
     <button class="refresh-btn" id="refreshBtn" onclick="fetchPrices()">
       <span>📡</span> Fiyat Güncelle
     </button>
@@ -503,6 +551,7 @@ select.field-inp { -webkit-appearance: none; }
     <div class="fpill" data-f="STRONG BUY" onclick="setFilter(this)">S.BUY</div>
     <div class="fpill" data-f="BUY" onclick="setFilter(this)">BUY</div>
     <div class="fpill" data-f="HOLD" onclick="setFilter(this)">HOLD</div>
+    <div class="fpill" data-f="SELL" onclick="setFilter(this)">SELL+</div>
   </div>
 </div>
 
@@ -689,6 +738,25 @@ function importData() {
   m.onclick = function(e){ if(e.target===m) m.remove(); };
 }
 
+// ── HELPERS ──
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function erDaysLeft(er) {
+  if(!er) return null;
+  var months = {JAN:0,FEB:1,MAR:2,APR:3,MAY:4,JUN:5,JUL:6,AUG:7,SEP:8,OCT:9,NOV:10,DEC:11};
+  var parts = er.trim().toUpperCase().split(' ');
+  if(parts.length < 2) return null;
+  var day = parseInt(parts[0]);
+  var mon = months[parts[1]];
+  if(isNaN(day) || mon === undefined) return null;
+  var now = new Date(); now.setHours(0,0,0,0);
+  var d = new Date(now.getFullYear(), mon, day);
+  if(d < now) d = new Date(now.getFullYear()+1, mon, day);
+  return Math.round((d - now) / (1000*60*60*24));
+}
+
 // ── BADGES ──
 function badgeHtml(val) {
   if(!val || val === '-') return '<span class="badge badge-empty">—</span>';
@@ -713,7 +781,8 @@ function passesFilter(row) {
   if(activeFilter === 'all') return true;
   var v = (row.quant||'').trim().toUpperCase();
   var f = activeFilter.toUpperCase();
-  if(f === 'BUY') return v === 'BUY' || v === 'STRONG BUY';
+  if(f === 'BUY')  return v === 'BUY' || v === 'STRONG BUY';
+  if(f === 'SELL') return v === 'SELL' || v === 'STRONG SELL';
   return v === f;
 }
 
@@ -753,7 +822,7 @@ function renderTable() {
     if(!q) return true;
     return r.ticker.toLowerCase().includes(q) ||
            (r.note||'').toLowerCase().includes(q) ||
-           (r.exp||'').toLowerCase().includes(q);
+           (r.er||'').toLowerCase().includes(q);
   });
 
   if(sortCol === 'price') {
@@ -798,29 +867,54 @@ function renderTable() {
     return '<tr style="animation-delay:'+Math.min(idx*0.03,0.3)+'s" onclick="openEdit('+r.id+')">' +
       '<td>' +
         '<div class="cell-ticker">' +
-          '<div class="ticker-name"><strong>'+r.ticker+'</strong></div>' +
-          (r.note?'<div style="font-size:10px;color:var(--ink3);margin-top:1px;max-width:140px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+r.note+'</div>':'') +
+          '<div class="ticker-name"><strong>'+esc(r.ticker)+'</strong></div>' +
+          (r.note?'<div style="font-size:10px;color:var(--ink3);margin-top:1px;max-width:140px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+esc(r.note)+'</div>':'') +
         '</div>' +
       '</td>' +
       '<td style="text-align:right">'+priceHtml+'</td>' +
       '<td style="text-align:right">'+badgeHtml(r.quant)+'</td>' +
       '<td style="text-align:right">'+badgeHtml(r.ws)+'</td>' +
-      '<td style="text-align:right;font-size:11px;font-family:var(--mono);color:var(--ink2);white-space:nowrap;">'+(r.er||'—')+'</td>' +
+      (function(){
+        var dLeft = erDaysLeft(r.er);
+        var erTxt = esc(r.er||'—');
+        var erSt  = 'text-align:right;font-size:11px;font-family:var(--mono);color:var(--ink2);white-space:nowrap;';
+        if(dLeft !== null && dLeft >= 0 && dLeft <= 3){
+          erSt  = 'text-align:right;font-size:11px;font-family:var(--mono);color:var(--dn);font-weight:700;white-space:nowrap;';
+          erTxt = erTxt + (dLeft===0?' ⚡':' <span style="font-size:9px">('+dLeft+'g)</span>');
+        } else if(dLeft !== null && dLeft >= 0 && dLeft <= 14){
+          erSt  = 'text-align:right;font-size:11px;font-family:var(--mono);color:var(--warn);font-weight:600;white-space:nowrap;';
+          erTxt = erTxt + ' <span style="font-size:9px">('+dLeft+'g)</span>';
+        }
+        return '<td style="'+erSt+'">'+erTxt+'</td>';
+      })() +
     '</tr>';
   }).join('');
 }
 
 // ── PRICE FETCH ──
 function _parseQuotes(res) {
+  console.log('[WL] API yanıt:', JSON.stringify(res).slice(0,400));
   var list = [];
+  if(!res) { console.warn('[WL] Boş yanıt'); return 0; }
   if(Array.isArray(res)) list = res;
-  else if(res.quotes) list = res.quotes;
+  else if(res.quotes && Array.isArray(res.quotes)) list = res.quotes;
   else if(res.symbol) list = [res];
-  else { Object.keys(res).forEach(function(k){ if(res[k]&&res[k].price) list.push({symbol:k,price:res[k].price}); }); }
+  else if(typeof res === 'object') {
+    Object.keys(res).forEach(function(k){
+      var v = res[k];
+      if(v && typeof v === 'object' && (v.price || v.regularMarketPrice)) {
+        list.push({symbol:k, price: v.price || v.regularMarketPrice});
+      } else if(v && typeof v === 'number' && v > 0) {
+        list.push({symbol:k, price: v});
+      }
+    });
+  }
   var updated = 0;
   list.forEach(function(q){
-    var p = q.price || q.regularMarketPrice || 0;
-    if(q.symbol && p > 0){ prices[q.symbol.toUpperCase()] = Math.round(p*100)/100; updated++; }
+    if(!q) return;
+    var sym = (q.symbol || q.ticker || '').toUpperCase();
+    var p = q.price || q.regularMarketPrice || q.close || 0;
+    if(sym && p > 0){ prices[sym] = Math.round(p*100)/100; updated++; }
   });
   return updated;
 }
@@ -837,7 +931,7 @@ function _fetchBatch(batch) {
       batch.forEach(function(t){
         chain = chain.then(function(acc){
           return fetch(PROXY_BASE+'/api/quote?symbol='+encodeURIComponent(t))
-            .then(function(r){ return r.json(); })
+            .then(function(r){ if(!r.ok) throw new Error(r.status); return r.json(); })
             .then(function(q){
               var p = q.price || q.regularMarketPrice || 0;
               if(p>0){ prices[t.toUpperCase()] = Math.round(p*100)/100; return acc+1; }
@@ -919,24 +1013,24 @@ function showModal(row) {
   m.className = 'overlay';
 
   var qOpts = ['STRONG BUY','BUY','HOLD','SELL','STRONG SELL','-'].map(function(v){
-    return '<option value="'+v+'"'+(row&&(row.quant||'')===v?' selected':'')+'>'+v+'</option>';
+    return '<option value="'+v+'"'+(row&&(row.quant||'').trim().toUpperCase()===v?' selected':'')+'>'+v+'</option>';
   }).join('');
   var wsOpts = ['STRONG BUY','BUY','HOLD','SELL','STRONG SELL','-'].map(function(v){
-    return '<option value="'+v+'"'+(row&&(row.ws||'')===v?' selected':'')+'>'+v+'</option>';
+    return '<option value="'+v+'"'+(row&&(row.ws||'').trim().toUpperCase()===v?' selected':'')+'>'+v+'</option>';
   }).join('');
 
   m.innerHTML = '<div class="sheet">' +
     '<div class="sheet-handle"></div>' +
     '<div class="sheet-title">'+(isEdit?'✎ Düzenle':'+ Yeni Ticker')+'</div>' +
     '<div class="field-row">' +
-      '<div class="field-group"><div class="field-label">Ticker</div><input class="field-inp" id="f_ticker" placeholder="NVDA" style="text-transform:uppercase" value="'+(row?row.ticker:'')+'" autocapitalize="characters"></div>' +
-      '<div class="field-group"><div class="field-label">ER Tarihi</div><input class="field-inp" id="f_er" placeholder="14 MAY" value="'+(row?row.er||'':'')+'" ></div>' +
+      '<div class="field-group"><div class="field-label">Ticker</div><input class="field-inp" id="f_ticker" placeholder="NVDA" style="text-transform:uppercase" value="'+esc(row?row.ticker:'')+'" autocapitalize="characters"></div>' +
+      '<div class="field-group"><div class="field-label">ER Tarihi</div><input class="field-inp" id="f_er" placeholder="14 MAY" value="'+esc(row?row.er||'':'')+'" ></div>' +
     '</div>' +
     '<div class="field-row">' +
       '<div class="field-group"><div class="field-label">Quant</div><select class="field-inp" id="f_quant">'+qOpts+'</select></div>' +
       '<div class="field-group"><div class="field-label">Wall Street</div><select class="field-inp" id="f_ws">'+wsOpts+'</select></div>' +
     '</div>' +
-    '<div class="field-group"><div class="field-label">Not (opsiyonel)</div><input class="field-inp" id="f_note" placeholder="prim artarsa cazip..." value="'+(row?row.note||'':'')+'" ></div>' +
+    '<div class="field-group"><div class="field-label">Not (opsiyonel)</div><input class="field-inp" id="f_note" placeholder="prim artarsa cazip..." value="'+esc(row?row.note||'':'')+'" ></div>' +
     '<button class="btn-primary" onclick="saveRow()">'+(isEdit?'✅ Kaydet':'✅ Ekle')+'</button>' +
     (isEdit?'<button class="btn-danger" onclick="deleteRow('+row.id+')">🗑 Sil</button>':'') +
     '<button class="btn-ghost" onclick="this.closest(\'.overlay\').remove()">İptal</button>' +
@@ -959,7 +1053,7 @@ function saveRow() {
     var idx = data.findIndex(function(r){ return r.id===editingId; });
     if(idx>=0){ data[idx].ticker=ticker; data[idx].er=er; data[idx].quant=quant; data[idx].ws=ws; data[idx].note=note; }
   } else {
-    var newId = Math.max.apply(null, data.map(function(r){return r.id;})) + 1;
+    var _ids = data.map(function(r){return r.id;}); var newId = _ids.length ? Math.max.apply(null, _ids) + 1 : 1;
     data.push({id:newId, ticker:ticker, er:er, price_ref:0, quant:quant, ws:ws, note:note});
   }
   save();
@@ -991,7 +1085,21 @@ function confirmDelete(id) {
   renderTable();
 }
 
+// ── DARK MODE ──
+var _dark = localStorage.getItem('wl_dark') === '1';
+function applyTheme() {
+  document.documentElement.setAttribute('data-theme', _dark ? 'dark' : 'light');
+  var btn = document.getElementById('themeBtn');
+  if(btn) btn.textContent = _dark ? '☀️' : '🌙';
+}
+function toggleTheme() {
+  _dark = !_dark;
+  localStorage.setItem('wl_dark', _dark ? '1' : '0');
+  applyTheme();
+}
+
 // ── INIT ──
+applyTheme();
 renderTable();
 </script>
 </body>
