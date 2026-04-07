@@ -19,23 +19,23 @@
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root {
-  --cream:    #F5EFE6;
-  --cream2:   #EDE4D7;
-  --cream3:   #E0D5C5;
+  --cream:    #D5C9B5;
+  --cream2:   #C5B7A0;
+  --cream3:   #B0A088;
   --ink:      #2C1F0E;
   --ink2:     #5C4A32;
   --ink3:     #8C7A62;
   --up:       #1A7A4A;
-  --up-bg:    #E6F4ED;
+  --up-bg:    #D0EBD9;
   --dn:       #B83232;
-  --dn-bg:    #FAEAEA;
+  --dn-bg:    #F0D5D5;
   --warn:     #C07A10;
-  --warn-bg:  #FDF3E3;
+  --warn-bg:  #F5E5C8;
   --info:     #1A5FA8;
-  --info-bg:  #E8F0FB;
-  --card:     #FFFDF9;
-  --border:   rgba(92,74,50,0.12);
-  --shadow:   0 2px 12px rgba(44,31,14,0.08);
+  --info-bg:  #D0DFF5;
+  --card:     #E0D5C5;
+  --border:   rgba(92,74,50,0.22);
+  --shadow:   0 2px 12px rgba(44,31,14,0.14);
   --radius:   14px;
   --font:     'DM Sans', sans-serif;
   --mono:     'DM Mono', monospace;
@@ -103,7 +103,7 @@ body {
   position: sticky;
   top: 0;
   z-index: 100;
-  background: rgba(245,239,230,0.92);
+  background: rgba(213,201,181,0.94);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border-bottom: 1px solid var(--border);
@@ -435,7 +435,7 @@ body {
 .sheet {
   width: 100%;
   max-width: 520px;
-  background: var(--cream);
+  background: var(--card);
   border-radius: 20px 20px 0 0;
   border-top: 1px solid var(--border);
   padding: 20px 20px 40px;
@@ -1021,17 +1021,19 @@ function showModal(row) {
 
   m.innerHTML = '<div class="sheet">' +
     '<div class="sheet-handle"></div>' +
-    '<div class="sheet-title">'+(isEdit?'✎ Düzenle':'+ Yeni Ticker')+'</div>' +
+    '<div class="sheet-title">'+(isEdit?'✎ Düzenle':'🔎 Hisse Ekle')+'</div>' +
+    (!isEdit ? '<div style="font-size:12px;color:var(--ink3);margin-bottom:14px;line-height:1.5">Ticker sembolü gir (örn: NVDA, AAPL). Fiyat otomatik doğrulanır.</div>' : '') +
     '<div class="field-row">' +
-      '<div class="field-group"><div class="field-label">Ticker</div><input class="field-inp" id="f_ticker" placeholder="NVDA" style="text-transform:uppercase" value="'+esc(row?row.ticker:'')+'" autocapitalize="characters"></div>' +
+      '<div class="field-group"><div class="field-label">Ticker</div><input class="field-inp" id="f_ticker" placeholder="NVDA" style="text-transform:uppercase;letter-spacing:1px;font-weight:700" value="'+esc(row?row.ticker:'')+'" autocapitalize="characters" autocomplete="off" spellcheck="false"></div>' +
       '<div class="field-group"><div class="field-label">ER Tarihi</div><input class="field-inp" id="f_er" placeholder="14 MAY" value="'+esc(row?row.er||'':'')+'" ></div>' +
     '</div>' +
+    (!isEdit ? '<div id="ticker-verify-row" style="margin-top:-8px;margin-bottom:14px;min-height:20px;padding-left:2px;font-size:12px;font-family:var(--mono);transition:all 0.2s;"></div>' : '') +
     '<div class="field-row">' +
       '<div class="field-group"><div class="field-label">Quant</div><select class="field-inp" id="f_quant">'+qOpts+'</select></div>' +
       '<div class="field-group"><div class="field-label">Wall Street</div><select class="field-inp" id="f_ws">'+wsOpts+'</select></div>' +
     '</div>' +
     '<div class="field-group"><div class="field-label">Not (opsiyonel)</div><input class="field-inp" id="f_note" placeholder="prim artarsa cazip..." value="'+esc(row?row.note||'':'')+'" ></div>' +
-    '<button class="btn-primary" onclick="saveRow()">'+(isEdit?'✅ Kaydet':'✅ Ekle')+'</button>' +
+    '<button class="btn-primary" onclick="saveRow()">'+(isEdit?'✅ Kaydet':'✅ Watchlist\'e Ekle')+'</button>' +
     (isEdit?'<button class="btn-danger" onclick="deleteRow('+row.id+')">🗑 Sil</button>':'') +
     '<button class="btn-ghost" onclick="this.closest(\'.overlay\').remove()">İptal</button>' +
   '</div>';
@@ -1039,6 +1041,37 @@ function showModal(row) {
   document.body.appendChild(m);
   m.addEventListener('click', function(e){ if(e.target===m) m.remove(); });
   setTimeout(function(){ document.getElementById('f_ticker').focus(); }, 100);
+
+  if(!isEdit) {
+    var _vRow   = document.getElementById('ticker-verify-row');
+    var _vTimer = null;
+    document.getElementById('f_ticker').addEventListener('input', function(){
+      clearTimeout(_vTimer);
+      var t = this.value.trim().toUpperCase();
+      if(!t){ _vRow.innerHTML = ''; return; }
+      _vRow.innerHTML = '<span style="color:var(--ink3)">⟳ Doğrulanıyor…</span>';
+      _vTimer = setTimeout(function(){
+        fetch(PROXY_BASE+'/api/quote?symbol='+encodeURIComponent(t))
+          .then(function(r){ if(!r.ok) throw new Error(r.status); return r.json(); })
+          .then(function(res){
+            var p = 0;
+            if(Array.isArray(res) && res[0]) p = res[0].price||res[0].regularMarketPrice||0;
+            else if(res.price)              p = res.price;
+            else if(res.regularMarketPrice) p = res.regularMarketPrice;
+            else if(res[t] && typeof res[t]==='object') p = res[t].price||res[t].regularMarketPrice||0;
+            else if(res[t] && typeof res[t]==='number') p = res[t];
+            if(p > 0){
+              _vRow.innerHTML = '<span style="color:var(--up);font-weight:700">✓ Geçerli — $'+p.toFixed(2)+'</span>';
+              prices[t] = Math.round(p*100)/100;
+            } else {
+              _vRow.innerHTML = '<span style="color:var(--warn)">? Fiyat bulunamadı — yine de eklenebilir</span>';
+            }
+          }).catch(function(){
+            _vRow.innerHTML = '<span style="color:var(--ink3)">Bağlantı hatası</span>';
+          });
+      }, 650);
+    });
+  }
 }
 
 function saveRow() {
