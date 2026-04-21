@@ -1,4 +1,4 @@
-const CACHE = 'watchlist-v1';
+const CACHE = 'watchlist-v3';
 const CORE = ['/Watchlist/', '/Watchlist/index.html'];
 self.addEventListener('install', function(e) {
   e.waitUntil(caches.open(CACHE).then(function(c) { return c.addAll(CORE); }));
