@@ -283,8 +283,41 @@ body {
   transition: all 0.15s;
   animation: fadeIn 0.2s ease both;
 }
-.tbl-table tbody tr:hover td { background: #FFFBF5; }
+.tbl-table tbody tr:hover td { background: #CEC0AA; }
 .tbl-table tbody tr:hover { transform: translateY(-1px); }
+.tbl-table tbody tr.row-active td { background: rgba(26,122,74,0.13); }
+.tbl-table tbody tr.row-active:hover td { background: rgba(26,122,74,0.20); }
+
+.row-toggle {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  background: transparent;
+  cursor: pointer;
+  flex-shrink: 0;
+  position: relative;
+  transition: border-color 0.15s, background 0.15s;
+  padding: 0;
+}
+.row-toggle::after {
+  content: '';
+  position: absolute;
+  inset: 3px;
+  border-radius: 50%;
+  background: transparent;
+  transition: background 0.15s;
+}
+.row-toggle.active {
+  border-color: var(--up);
+}
+.row-toggle.active::after {
+  background: var(--up);
+}
+.row-toggle:hover {
+  border-color: var(--up);
+  opacity: 0.8;
+}
 
 .tbl-table tbody td {
   padding: 11px 10px;
@@ -576,12 +609,22 @@ select.field-inp { -webkit-appearance: none; }
 var PROXY_BASE = 'https://hisse-portfoyu.vercel.app';
 var LS_KEY = 'watchlist_v2';
 var LS_PRICES = 'watchlist_prices_v1';
+var LS_ACTIVE = 'watchlist_active_v1';
 var prices = {};
+var activeRows = {};
 var _fetching = false;
 var sortCol = null, sortDir = 1;
 var activeFilter = 'all';
 
 try { var _p = localStorage.getItem(LS_PRICES); if(_p) prices = JSON.parse(_p); } catch(e){}
+try { var _a = localStorage.getItem(LS_ACTIVE); if(_a) activeRows = JSON.parse(_a); } catch(e){}
+
+function toggleActive(id, evt) {
+  evt.stopPropagation();
+  activeRows[id] = !activeRows[id];
+  try { localStorage.setItem(LS_ACTIVE, JSON.stringify(activeRows)); } catch(e){}
+  renderTable();
+}
 
 // ── SEED DATA (fotoğraftan) ──
 var SEED = [
@@ -857,36 +900,49 @@ function renderTable() {
 
   body.innerHTML = rows.map(function(r, idx) {
     var sp = prices[r.ticker];
-    var priceHtml;
-    if(sp > 0) {
-      priceHtml = '<span style="font-family:var(--mono);font-size:14px;font-weight:500;">$' + sp.toFixed(2) + '</span>';
-    } else {
-      priceHtml = '<span class="price-loading"></span>';
-    }
-    var noteHtml = r.note ? '<div class="note-row visible" style="font-size:11px;color:var(--warn);padding-top:6px;margin-top:6px;border-top:1px solid var(--border);">💬 '+r.note+'</div>' : '';
-    return '<tr style="animation-delay:'+Math.min(idx*0.03,0.3)+'s" onclick="openEdit('+r.id+')">' +
+    var priceHtml = sp > 0
+      ? '<span style="font-family:var(--mono);font-size:14px;font-weight:500;">$' + sp.toFixed(2) + '</span>'
+      : '<span class="price-loading"></span>';
+
+    var isOn = !!activeRows[r.id];
+    var toggleBtn = '<button class="row-toggle'+(isOn?' active':'')+'" onclick="toggleActive('+r.id+',event)" title="İşlem müsait"></button>';
+
+    var erCell = (function(){
+      var dLeft = erDaysLeft(r.er);
+      var base  = esc(r.er||'—');
+      var st    = 'text-align:right;font-size:11px;font-family:var(--mono);color:var(--ink2);white-space:nowrap;';
+      var txt   = base;
+      if(dLeft !== null){
+        if(dLeft === 0){
+          st  = 'text-align:right;font-size:11px;font-family:var(--mono);color:var(--dn);font-weight:700;white-space:nowrap;';
+          txt = base + ' ⚡';
+        } else if(dLeft <= 7){
+          st  = 'text-align:right;font-size:11px;font-family:var(--mono);color:var(--dn);font-weight:700;white-space:nowrap;';
+          txt = base + ' <span style="font-size:9px">('+dLeft+'g)</span>';
+        } else if(dLeft <= 14){
+          st  = 'text-align:right;font-size:11px;font-family:var(--mono);color:var(--warn);font-weight:600;white-space:nowrap;';
+          txt = base + ' <span style="font-size:9px">('+dLeft+'g)</span>';
+        } else {
+          txt = base + ' <span style="font-size:9px;opacity:0.55">('+dLeft+'g)</span>';
+        }
+      }
+      return '<td style="'+st+'">'+txt+'</td>';
+    })();
+
+    return '<tr style="animation-delay:'+Math.min(idx*0.03,0.3)+'s"'+(isOn?' class="row-active"':'')+' onclick="openEdit('+r.id+')">' +
       '<td>' +
-        '<div class="cell-ticker">' +
-          '<div class="ticker-name"><strong>'+esc(r.ticker)+'</strong></div>' +
-          (r.note?'<div style="font-size:10px;color:var(--ink3);margin-top:1px;max-width:140px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+esc(r.note)+'</div>':'') +
+        '<div style="display:flex;align-items:center;gap:10px">' +
+          toggleBtn +
+          '<div class="cell-ticker">' +
+            '<div class="ticker-name"><strong>'+esc(r.ticker)+'</strong></div>' +
+            (r.note?'<div style="font-size:10px;color:var(--ink3);margin-top:1px;max-width:120px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+esc(r.note)+'</div>':'') +
+          '</div>' +
         '</div>' +
       '</td>' +
       '<td style="text-align:right">'+priceHtml+'</td>' +
       '<td style="text-align:right">'+badgeHtml(r.quant)+'</td>' +
       '<td style="text-align:right">'+badgeHtml(r.ws)+'</td>' +
-      (function(){
-        var dLeft = erDaysLeft(r.er);
-        var erTxt = esc(r.er||'—');
-        var erSt  = 'text-align:right;font-size:11px;font-family:var(--mono);color:var(--ink2);white-space:nowrap;';
-        if(dLeft !== null && dLeft >= 0 && dLeft <= 3){
-          erSt  = 'text-align:right;font-size:11px;font-family:var(--mono);color:var(--dn);font-weight:700;white-space:nowrap;';
-          erTxt = erTxt + (dLeft===0?' ⚡':' <span style="font-size:9px">('+dLeft+'g)</span>');
-        } else if(dLeft !== null && dLeft >= 0 && dLeft <= 14){
-          erSt  = 'text-align:right;font-size:11px;font-family:var(--mono);color:var(--warn);font-weight:600;white-space:nowrap;';
-          erTxt = erTxt + ' <span style="font-size:9px">('+dLeft+'g)</span>';
-        }
-        return '<td style="'+erSt+'">'+erTxt+'</td>';
-      })() +
+      erCell +
     '</tr>';
   }).join('');
 }
